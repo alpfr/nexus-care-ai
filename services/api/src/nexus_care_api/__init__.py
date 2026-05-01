@@ -1,6 +1,6 @@
 """Nexus Care API — clinical + AI service.
 
-This module is intentionally empty in tranche 1. The FastAPI app lands in tranche 2.
+The FastAPI app is constructed in `nexus_care_api.app:app`.
 """
 
 __version__ = "0.1.0"

@@ -12,6 +12,8 @@ dependencies = [
     "nexus-care-api",
     "nexus-care-platform",
     "nexus-care-db",
+    "nexus-care-tenancy",
+    "nexus-care-auth",
 ]
 
 [dependency-groups]
@@ -28,54 +30,54 @@ dev = [
 # ---------------------------------------------------------------------------
 # uv workspace
 # ---------------------------------------------------------------------------
-# Each Python service / package is its own uv workspace member. They share
-# the same lockfile (uv.lock) and virtual environment (.venv) but have their
-# own pyproject.toml so deps are scoped tightly per service.
 [tool.uv.workspace]
 members = [
     "services/api",
     "services/platform",
     "db",
+    "packages/tenancy",
+    "packages/auth",
 ]
 
-# Resolve internal workspace deps locally instead of from PyPI.
 [tool.uv.sources]
 nexus-care-api = { workspace = true }
 nexus-care-platform = { workspace = true }
 nexus-care-db = { workspace = true }
+nexus-care-tenancy = { workspace = true }
+nexus-care-auth = { workspace = true }
 
 # ---------------------------------------------------------------------------
-# Ruff — single tool replacing black, isort, flake8, pyupgrade
+# Ruff
 # ---------------------------------------------------------------------------
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 extend-exclude = [
-    "db/alembic/versions",  # generated migration files
+    "db/alembic/versions",
     ".venv",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E", "F", "W",   # pycodestyle + pyflakes
-    "I",             # isort
-    "B",             # bugbear
-    "UP",            # pyupgrade
-    "S",             # bandit (security)
-    "N",             # pep8-naming
-    "RUF",           # ruff-specific
-    "PT",            # pytest-style
-    "SIM",           # simplify
-    "TID",           # tidy imports
+    "E", "F", "W",
+    "I",
+    "B",
+    "UP",
+    "S",
+    "N",
+    "RUF",
+    "PT",
+    "SIM",
+    "TID",
 ]
 ignore = [
-    "E501",  # line too long — formatter handles this
-    "S101",  # assert is fine in tests
-    "S104",  # binding to all interfaces is fine in containers
+    "E501",
+    "S101",
+    "S104",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "N", "B"]
+"**/tests/**" = ["S", "N", "B"]
 "db/alembic/env.py" = ["E402"]
 
 [tool.ruff.format]
@@ -87,12 +89,17 @@ indent-style = "space"
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["services/api/tests", "services/platform/tests", "tests"]
+testpaths = [
+    "packages/tenancy/tests",
+    "packages/auth/tests",
+    "services/api/tests",
+    "services/platform/tests",
+    "tests",
+]
 addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
-    "--cov-report=term-missing",
 ]
 asyncio_mode = "auto"
 markers = [
@@ -114,5 +121,5 @@ disallow_untyped_decorators = true
 exclude = ["db/alembic/versions"]
 
 [[tool.mypy.overrides]]
-module = ["tests.*"]
+module = ["tests.*", "*.tests.*"]
 disallow_untyped_defs = false

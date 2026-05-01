@@ -1,0 +1,42 @@
+# Local-dev Postgres for Nexus Care AI.
+#
+# Usage from repo root:
+#     docker compose up -d        # bring it up in the background
+#     docker compose logs -f db   # tail logs
+#     docker compose down         # stop (data persists)
+#     docker compose down -v      # stop and DELETE all data
+#
+# Only Postgres for now — the API and frontend run from your shell during
+# tranche 2/3 development. The full stack lands in docker-compose in tranche 5.
+#
+# Port 5433 is used (not 5432) because port 5432 is taken on this machine
+# by another Docker container.
+#
+# IMPORTANT: Postgres 18+ requires the data volume mounted at
+# /var/lib/postgresql (NOT /var/lib/postgresql/data as in older versions).
+# The image places version-specific subdirectories under there. See:
+# https://github.com/docker-library/postgres/pull/1259
+
+services:
+  db:
+    image: postgres:18.3-bookworm
+    container_name: nexus_care_db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+      POSTGRES_DB: nexus_care
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+      - nexus_care_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_care"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  nexus_care_pgdata:
+    name: nexus_care_pgdata
