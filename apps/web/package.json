@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
@@ -25,7 +25,7 @@
     "zustand": "^5.0.0",
     "lucide-react": "^0.468.0",
     "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.0",
+    "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.0"
   },
   "devDependencies": {

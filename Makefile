@@ -7,7 +7,7 @@
 #     make db-migrate        # apply pending migrations
 #     make db-seed           # seed a sandbox tenant + supervisor user
 #     make api               # run the FastAPI dev server
-#     make web               # run the Next.js dev server (when scaffolded)
+#     make web               # run the Next.js dev server on port 3001
 #     make test              # run the backend test suite
 #
 # Most targets assume you've sourced .env first:  set -a; source .env; set +a

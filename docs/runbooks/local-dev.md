@@ -1,6 +1,6 @@
 # Local Development Runbook
 
-After this runbook: you have Postgres running, the schema migrated, a sandbox tenant seeded, and you can hit `/api/login` with a real PIN to get a JWT.
+After this runbook: you have Postgres running, the schema migrated, a sandbox tenant seeded, the FastAPI backend serving JSON on port 18001, and the Next.js frontend serving the login screen on port 3001.
 
 ## One-time setup
 
@@ -14,68 +14,92 @@ cp .env.example .env
 make install
 ```
 
-## Daily flow
+## Daily flow — the four-terminal pattern
+
+You'll typically have four terminal tabs open:
+
+| Tab | Purpose | Command |
+|---|---|---|
+| 1 | Database | `make db-up` once, leave running in background |
+| 2 | API | `make api` — long-running |
+| 3 | Frontend | `make web` — long-running |
+| 4 | Scratch | smoke tests, migrations, etc. |
+
+### Tab 1 — Database
 
 ```bash
-# 1. Start the local Postgres container
 make db-up
 ```
 
-Expected: prints `Postgres is ready on localhost:5433.`
+Expected ending: `Postgres is ready on localhost:5433.`
+
+This is one-and-done — the container persists across reboots unless you `make db-down`.
+
+### Tab 4 (yes, do this once before the API runs) — Migrate + seed
 
 ```bash
-# 2. Apply migrations (idempotent — safe to run on every start)
+set -a; source .env; set +a
 make db-migrate
-```
-
-Expected: alembic logs `Running upgrade -> 0001_initial_schema`.
-
-```bash
-# 3. Seed a sandbox tenant + supervisor user
 make db-seed
 ```
 
-Expected (last lines):
+Expected: `Running upgrade -> 0001_initial_schema...` followed by the seed banner with PIN `246810`. Idempotent — safe to run again.
 
-```
-============================================================
- Local sandbox is ready. Log in with:
-   facility_code: demo-sandbox
-   pin:           246810
-============================================================
-```
+### Tab 2 — API
 
 ```bash
-# 4. Start the API in one terminal
+cd /Users/alpfr/Projects/nexus-care-ai
+set -a; source .env; set +a
 make api
 ```
 
-Expected: uvicorn logs `Application startup complete.` and binds `127.0.0.1:8000`.
+Expected ending: `Application startup complete.` and `Uvicorn running on http://127.0.0.1:18001`.
 
-In another terminal, smoke-test:
+**Leave running.** Auto-reloads on Python file changes.
+
+### Tab 3 — Frontend
 
 ```bash
-curl http://localhost:8000/api/health
+cd /Users/alpfr/Projects/nexus-care-ai
+make web
 ```
 
-Expected: `{"status":"ok","database":"ok"}`
+Expected ending: `▲ Next.js 16.x.x` and `- Local:        http://localhost:3001`.
+
+**Leave running.** Auto-reloads on TypeScript/React file changes.
+
+### Browser — open the app
+
+Open <http://localhost:3001/> in any browser. You should see the Nexus Care AI login screen.
+
+Log in with:
+- **Facility code:** `demo-sandbox`
+- **PIN:** `246810`
+
+You'll land on the dashboard. The orange banner about being in a sandbox tenant is expected — that's the gated state machine in action.
+
+## Smoke tests
+
+If the UI seems off, isolate which layer is the problem:
 
 ```bash
-# Login. Should return a JWT.
-curl -X POST http://localhost:8000/api/login \
+# 1. Database reachable?
+docker compose ps              # nexus_care_db should show "Up (healthy)"
+
+# 2. API running?
+curl http://localhost:18001/api/health
+# expected: {"status":"ok","database":"ok"}
+
+# 3. API → DB authentic round-trip?
+curl -X POST http://localhost:18001/api/login \
   -H 'Content-Type: application/json' \
   -d '{"facility_code":"demo-sandbox","pin":"246810"}'
+# expected: JSON with access_token
+
+# 4. Frontend serving?
+curl -s http://localhost:3001 | head -5
+# expected: HTML
 ```
-
-Expected: `{"access_token":"eyJ...","token_type":"bearer","expires_in":28800}`
-
-```bash
-# Use the token to hit /api/me. Replace TOKEN_HERE with the access_token value.
-curl http://localhost:8000/api/me \
-  -H 'Authorization: Bearer TOKEN_HERE'
-```
-
-Expected: `{"id":1,"full_name":"Demo Supervisor","role":"supervisor","tenant_id":1,"tenant_state":"sandbox"}`
 
 ## Resetting the database
 
@@ -85,7 +109,7 @@ If migrations get tangled or you want a clean slate:
 make db-reset
 ```
 
-This stops Postgres, **deletes all data**, brings it back up, runs all migrations, and re-seeds. Takes about 15 seconds.
+Stops Postgres, deletes all data, brings it back up, runs migrations, re-seeds. ~15 seconds.
 
 ## Running tests
 
@@ -93,30 +117,39 @@ This stops Postgres, **deletes all data**, brings it back up, runs all migration
 # Unit tests (fast — no DB needed)
 make test-fast
 
-# Full suite including integration tests against the local Postgres
+# Full backend suite including integration tests
 make test
-```
 
-Make sure the DB is up and migrated before running the full suite.
+# Frontend e2e (Playwright). Requires API + frontend running.
+cd apps/web
+bun run test:e2e
+```
 
 ## Stopping for the day
 
+In the API tab and frontend tab: `Ctrl+C`.
+
+For the database (data persists):
 ```bash
 make db-down
 ```
 
-Data persists. Next morning, just `make db-up` again.
+Next morning, just `make db-up` again.
 
 ## Common errors
 
 **`ERROR: connection refused`** — Postgres isn't running. `make db-up`.
 
-**`alembic.util.exc.CommandError: Can't locate revision identified by '0001_initial_schema'`** — Your local DB has migration history pointing to a different repo. `make db-reset` or drop and recreate the database.
+**`Address already in use` on 18001** — old API still running, find it with `lsof -i :18001 -P -n` and kill it.
 
-**`FATAL: password authentication failed`** — Your `.env` `DATABASE_URL` doesn't match the docker-compose creds. Default is `postgresql+psycopg://nexus:nexus@localhost:5433/nexus_care`.
+**Login fails with "Invalid login"** — DB is up but sandbox tenant wasn't seeded, or you typed the PIN wrong. `make db-seed` and try `246810` again.
 
-**`bind: address already in use` on port 5433** — Some other process is on 5433. `lsof -i :5433` to find it. If it's a stale `nexus_care_db` container, `docker rm -f nexus_care_db`.
+**`bind: address already in use` on 5433** — another container has 5433. `lsof -i :5433` to find it. If it's a stale `nexus_care_db` container, `docker rm -f nexus_care_db`.
+
+**Frontend shows "Cannot connect to API"** — the frontend's rewrite proxy is pointed at the wrong API URL. Check `NEXT_PUBLIC_API_BASE_URL` in `.env` matches your running API port (default 18001). Restart the frontend after changing `.env`.
+
+**CORS error in browser dev tools** — should not happen because of the rewrite proxy. If it does, your env has `NEXT_PUBLIC_API_BASE_URL` blank, so requests are going directly to FastAPI cross-origin. Set it.
 
 ## Rollback
 
-This runbook is non-destructive (apart from `make db-reset` and `make db-down -v`, both of which the runbook calls out explicitly). If something goes wrong, no production state is involved — just `make db-reset` and start over.
+This runbook is non-destructive (apart from `make db-reset` and `make db-down -v`, which the runbook calls out). If something goes wrong, no production state is involved — just `make db-reset` and start over.
