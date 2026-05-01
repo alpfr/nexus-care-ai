@@ -85,7 +85,7 @@ db-seed: ## Seed local DB with a sandbox tenant + supervisor user.
 .PHONY: api
 api: ## Run the FastAPI dev server (auto-reload).
 	NEXUS_API_DATABASE_URL='$(DATABASE_URL)' \
-	uv run fastapi dev services/api/src/nexus_care_api/app.py --port 8001
+	uv run fastapi dev services/api/src/nexus_care_api/app.py --port 18001
 
 .PHONY: web
 web: ## Run the Next.js dev server (lands in tranche 3).
