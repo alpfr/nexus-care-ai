@@ -1,0 +1,103 @@
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# --- Editors / IDEs ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+*.swp
+*.swo
+*~
+.cursor/
+.kiro/
+.claude/
+.antigravity/
+
+# --- Secrets / env files (NEVER commit) ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+!**/.env.example
+
+# --- Python (uv) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+.nox/
+.hypothesis/
+
+# --- Node / Bun ---
+node_modules/
+.next/
+out/
+.turbo/
+.bun/
+bun.lock
+bun.lockb
+*.tsbuildinfo
+.eslintcache
+
+# --- Local DB / data ---
+*.db
+*.sqlite
+*.sqlite3
+data/
+db/data/
+postgres-data/
+pgdata/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Docker / build artifacts ---
+.docker/
+*.tar
+*.tar.gz
+
+# --- Test / playwright artifacts ---
+test-results/
+playwright-report/
+playwright/.cache/
+
+# --- Generated docs / coverage ---
+site/
+docs/_build/
+
+# --- Local-only scratch dirs ---
+scratch/
+tmp/
+.tmp/
