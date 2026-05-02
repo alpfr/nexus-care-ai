@@ -104,7 +104,7 @@ web: ## Run the Next.js dev server on port 3001.
 .PHONY: platform-bootstrap-admin
 platform-bootstrap-admin: ## Create the default local platform admin (admin@local / change-me-locally).
 	DATABASE_URL='$(DATABASE_URL)' uv run python scripts/bootstrap_platform_admin.py \
-		--email admin@local \
+		--email admin@nexus-care.example.com \
 		--name 'Local Platform Admin' \
 		--password 'change-me-locally'
 
