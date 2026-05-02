@@ -12,8 +12,8 @@ The phased plan to consolidate `smart-care-ai` and `NexusLTC` into Nexus Care AI
 | 1 | Repo skeleton & tooling | ✅ done | — |
 | 2 | Backend hello-world + auth shell + first migration | ✅ done | — |
 | 3 | Frontend hello-world + auth shell | ✅ done | — |
-| 4 | SaaS-platform stub (tenant lifecycle, feature flags) | ⏳ next | May 2026 |
-| 5 | Containers + Helm + CI | ⏳ | May 2026, end |
+| 4 | SaaS-platform stub (tenant lifecycle, feature flags) | ✅ done | — |
+| 5 | Containers + Helm + CI | ⏳ next | May 2026, end |
 | 6 | Core LTC features (residents, eMAR, MDS, ADL, care plans, vitals) | ⏳ | June 2026 |
 | 7 | AI features (SOAP, SBAR, wound vision, nutrition risk, predictive staffing) | ⏳ | June 2026 |
 | 8 | Public sandbox launch + design-partner onboarding | ⏳ | end of June 2026 |

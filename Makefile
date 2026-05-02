@@ -6,8 +6,9 @@
 #     make db-up             # start local Postgres
 #     make db-migrate        # apply pending migrations
 #     make db-seed           # seed a sandbox tenant + supervisor user
-#     make api               # run the FastAPI dev server
-#     make web               # run the Next.js dev server on port 3001
+#     make api               # run the FastAPI clinical dev server (port 18001)
+#     make platform          # run the FastAPI platform dev server (port 18002)
+#     make web               # run the Next.js dev server (port 3001)
 #     make test              # run the backend test suite
 #
 # Most targets assume you've sourced .env first:  set -a; source .env; set +a
@@ -20,7 +21,7 @@ DATABASE_URL ?= postgresql+psycopg://nexus:nexus@localhost:5433/nexus_care
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| sort \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
 # ---------------------------------------------------------------------------
 # Install
@@ -53,11 +54,12 @@ db-down: ## Stop the local Postgres container (data persists).
 	docker compose down
 
 .PHONY: db-reset
-db-reset: ## Stop Postgres and DELETE all data, then bring it back up + migrate + seed.
+db-reset: ## Stop Postgres, DELETE all data, bring it back up + migrate + seed + bootstrap admin.
 	docker compose down -v
 	$(MAKE) db-up
 	$(MAKE) db-migrate
 	$(MAKE) db-seed
+	$(MAKE) platform-bootstrap-admin
 
 .PHONY: db-migrate
 db-migrate: ## Apply pending Alembic migrations.
@@ -83,13 +85,28 @@ db-seed: ## Seed local DB with a sandbox tenant + supervisor user.
 # Run
 # ---------------------------------------------------------------------------
 .PHONY: api
-api: ## Run the FastAPI dev server (auto-reload).
+api: ## Run the FastAPI clinical dev server on port 18001.
 	NEXUS_API_DATABASE_URL='$(DATABASE_URL)' \
 	uv run fastapi dev services/api/src/nexus_care_api/app.py --port 18001
 
+.PHONY: platform
+platform: ## Run the FastAPI platform dev server on port 18002.
+	NEXUS_PLATFORM_DATABASE_URL='$(DATABASE_URL)' \
+	uv run fastapi dev services/platform/src/nexus_care_platform/app.py --port 18002
+
 .PHONY: web
-web: ## Run the Next.js dev server (lands in tranche 3).
+web: ## Run the Next.js dev server on port 3001.
 	cd apps/web && bun run dev
+
+# ---------------------------------------------------------------------------
+# Platform admin bootstrap
+# ---------------------------------------------------------------------------
+.PHONY: platform-bootstrap-admin
+platform-bootstrap-admin: ## Create the default local platform admin (admin@local / change-me-locally).
+	DATABASE_URL='$(DATABASE_URL)' uv run python scripts/bootstrap_platform_admin.py \
+		--email admin@local \
+		--name 'Local Platform Admin' \
+		--password 'change-me-locally'
 
 # ---------------------------------------------------------------------------
 # Quality

@@ -778,7 +778,8 @@ version = "0.1.0"
 source = { editable = "services/platform" }
 dependencies = [
     { name = "argon2-cffi" },
-    { name = "fastapi" },
+    { name = "fastapi", extra = ["standard"] },
+    { name = "nexus-care-auth" },
     { name = "nexus-care-db" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -792,7 +793,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0" },
-    { name = "fastapi", specifier = ">=0.136.1,<0.137" },
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.136.1,<0.137" },
+    { name = "nexus-care-auth", editable = "packages/auth" },
     { name = "nexus-care-db", editable = "db" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
     { name = "pydantic", specifier = ">=2.10.0" },

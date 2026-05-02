@@ -11,13 +11,30 @@ State transitions:
                                             ▲                          │
                                             └────── reactivate ────────┘
 
-Only the platform service may transition tenants. The clinical API reads
-state and enforces it (see nexus_care_tenancy.assert_can_write_phi).
+Transitions:
+  - sandbox → pending_activation : supervisor self-serves (clinical API)
+  - pending_activation → active  : platform-admin only (platform API)
+  - active → suspended           : platform-admin only (e.g., past-due)
+  - suspended → active           : platform-admin only (reactivation)
+  - any → terminated             : platform-admin only
+
+State + activation-pipeline columns are all here — keeping the lifecycle
+state and the artifacts that produced it co-located makes auditing easier.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, String, text
+import datetime as dt
+
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from nexus_care_db.base import PLATFORM_SCHEMA, Base, TimestampMixin
@@ -34,32 +51,57 @@ class Tenant(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-
-    # Display name for the facility/organization (shown to users in the UI).
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-
-    # Short user-typed code used at login alongside PIN. Unique system-wide.
-    # Format constraint enforced at the application layer (lowercase
-    # alphanumeric + dashes, 3-32 chars). Two facilities cannot have the same.
     facility_code: Mapped[str] = mapped_column(
         String(32), nullable=False, unique=True, index=True
     )
-
-    # Lifecycle state — see TenantState in nexus_care_tenancy. Stored as a
-    # plain string with a CHECK constraint so we can transition without
-    # creating a Postgres enum (which is painful to alter).
     state: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         server_default=text("'sandbox'"),
         index=True,
     )
-
-    # Region pin — every tenant lives in a single region for data residency.
-    # 'us-central' is the only value at launch. Adding 'us-east', 'eu-west',
-    # etc. is just a new row value plus a Helm deployment in that region.
     region_code: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         server_default=text("'us-central'"),
     )
+
+    # ---- Activation pipeline ----
+    # The supervisor who initiated the request to leave sandbox. Set when
+    # state transitions sandbox → pending_activation.
+    activation_requested_by_user_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(f"{PLATFORM_SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    activation_requested_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Platform admin who approved the transition to active.
+    activated_by_admin_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            f"{PLATFORM_SCHEMA}.platform_admins.id",
+            ondelete="SET NULL",
+            use_alter=True,  # avoid circular FK at table creation time
+            name="fk_tenants_activated_by_admin_id_platform_admins",
+        ),
+        nullable=True,
+    )
+    activated_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # External references to BAA + identity verification. In tranche 4 these
+    # are free-text — when we wire DocuSign/PandaDoc and Persona/Stripe Identity
+    # in tranche 9, they hold the artifact IDs from those providers.
+    baa_artifact_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    identity_verification_ref: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+
+    # Why a tenant was suspended/terminated. Free-text for now; could become
+    # an enum later.
+    state_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

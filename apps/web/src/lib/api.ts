@@ -2,13 +2,12 @@
  * Thin typed wrapper around fetch().
  *
  * All API calls go through here. Centralizing them gives us:
- *   - One place to attach the Authorization header (handled by useAuth hook)
+ *   - One place to attach the Authorization header
  *   - One place to translate non-2xx responses into typed errors
  *   - A single base URL that respects the rewrite proxy in next.config.ts
  *
  * Because next.config.ts proxies /api/* to the FastAPI backend, browser
- * fetches use the same origin as the page. No CORS, no preflights, no
- * leaking credentials cross-origin.
+ * fetches use the same origin as the page. No CORS, no preflights.
  */
 
 export class ApiError extends Error {
@@ -47,12 +46,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
-    // Cookies aren't used (we hold the JWT in memory + sessionStorage), but
-    // setting same-origin makes the policy explicit.
     credentials: "same-origin",
   });
 
-  // 204 No Content
   if (response.status === 204) {
     return undefined as T;
   }
@@ -101,6 +97,13 @@ export interface HealthResponse {
   database: string;
 }
 
+export interface RequestActivationResponse {
+  tenant_id: number;
+  state: string;
+  activation_requested_at: string | null;
+  message: string;
+}
+
 export const api = {
   health: (signal?: AbortSignal) =>
     request<HealthResponse>("/api/health", { signal }),
@@ -114,4 +117,11 @@ export const api = {
 
   me: (token: string, signal?: AbortSignal) =>
     request<MeResponse>("/api/me", { token, signal }),
+
+  requestActivation: (token: string, signal?: AbortSignal) =>
+    request<RequestActivationResponse>("/api/me/tenant/request-activation", {
+      method: "POST",
+      token,
+      signal,
+    }),
 };

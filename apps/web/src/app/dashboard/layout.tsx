@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
@@ -16,18 +16,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuth();
 
+  // Hydration guard: on the server (and the very first client render before
+  // sessionStorage has been read) we render a stable, content-free skeleton.
+  // Only after `mounted` flips on the client do we branch on auth state.
+  // This prevents server/client HTML from disagreeing.
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    if (!isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
 
-  // While the redirect is in flight we render nothing rather than flash
-  // the dashboard chrome to an unauthenticated user.
+  // First paint (server + initial client) — neutral skeleton.
+  if (!mounted) {
+    return (
+      <div
+        className="flex min-h-dvh items-center justify-center bg-surface-base"
+        suppressHydrationWarning
+      >
+        <p className="text-text-muted">Loading…</p>
+      </div>
+    );
+  }
+
+  // Post-mount, unauthenticated — redirect already fired above; show neutral
+  // text rather than flashing the chrome.
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-text-muted">
-        <p>Redirecting…</p>
+      <div className="flex min-h-dvh items-center justify-center bg-surface-base">
+        <p className="text-text-muted">Redirecting…</p>
       </div>
     );
   }
