@@ -97,7 +97,7 @@ def _extract_bearer(authorization: str | None) -> str:
     return parts[1]
 
 
-def require_user(
+async def require_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),

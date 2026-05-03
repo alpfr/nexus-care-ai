@@ -20,6 +20,11 @@ from nexus_care_tenancy import (
 )
 
 from nexus_care_api.routes import auth, health, tenant_lifecycle
+from nexus_care_api.routes.clinical import (
+    medication_orders,
+    medications,
+    residents,
+)
 from nexus_care_api.settings import get_settings
 
 
@@ -71,9 +76,16 @@ def create_app() -> FastAPI:
             },
         )
 
+    # Auth + plumbing
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(tenant_lifecycle.router, prefix="/api")
+
+    # Clinical surfaces (tranche 6a)
+    app.include_router(residents.router, prefix="/api")
+    app.include_router(medications.router, prefix="/api")
+    app.include_router(medication_orders.nested_router, prefix="/api")
+    app.include_router(medication_orders.flat_router, prefix="/api")
 
     return app
 

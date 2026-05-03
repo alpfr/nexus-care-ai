@@ -1,25 +1,30 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { LogOut, Pill, Users, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/cn";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const navItems = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/residents", label: "Residents", icon: Users, exact: false },
+  { href: "/dashboard/medications", label: "Medications", icon: Pill, exact: false },
+];
+
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, user, logout } = useAuth();
 
-  // Hydration guard: on the server (and the very first client render before
-  // sessionStorage has been read) we render a stable, content-free skeleton.
-  // Only after `mounted` flips on the client do we branch on auth state.
-  // This prevents server/client HTML from disagreeing.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -31,7 +36,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [mounted, isAuthenticated, router]);
 
-  // First paint (server + initial client) — neutral skeleton.
   if (!mounted) {
     return (
       <div
@@ -43,8 +47,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // Post-mount, unauthenticated — redirect already fired above; show neutral
-  // text rather than flashing the chrome.
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-surface-base">
@@ -62,7 +64,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex min-h-dvh flex-col bg-surface-base">
       <header className="border-b border-surface-border bg-surface-card">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Logo />
+          <div className="flex items-center gap-6">
+            <Logo />
+            <nav className="hidden md:flex md:items-center md:gap-1">
+              {navItems.map((item) => {
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition",
+                      active
+                        ? "bg-brand-50 text-brand-700"
+                        : "text-text-muted hover:bg-surface-muted hover:text-text-primary",
+                    )}
+                  >
+                    <item.icon className="size-4" aria-hidden />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
           <div className="flex items-center gap-3">
             {user ? (
               <div className="hidden text-right text-sm sm:block">
@@ -78,6 +104,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Button>
           </div>
         </div>
+        <nav className="border-t border-surface-border md:hidden">
+          <div className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 py-2 sm:px-6">
+            {navItems.map((item) => {
+              const active = item.exact
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
+                    active
+                      ? "bg-brand-50 text-brand-700"
+                      : "text-text-muted",
+                  )}
+                >
+                  <item.icon className="size-4" aria-hidden />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </header>
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {children}

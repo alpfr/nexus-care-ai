@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from sqlalchemy import text
 
 import pytest
 from fastapi.testclient import TestClient
@@ -115,7 +116,21 @@ def two_tenants(session_factory):
 
     yield ids
 
-    # Teardown: delete users then tenants.
+    # Teardown: delete users (and any audit log rows) before tenants
+    # because of the RESTRICT FK from users.tenant_id.
+    with session_scope(session_factory) as session:
+        session.execute(
+            text(
+                "DELETE FROM tenant_data.audit_log WHERE tenant_id IN "
+                "(SELECT id FROM platform.tenants WHERE facility_code IN (:a, :b))"
+            ),
+            {"a": ids["code_a"], "b": ids["code_b"]},
+        )
+        session.execute(
+            text("DELETE FROM platform.users WHERE tenant_id IN "
+                 "(SELECT id FROM platform.tenants WHERE facility_code IN (:a, :b))"),
+            {"a": ids["code_a"], "b": ids["code_b"]},
+        )
     with session_scope(session_factory) as session:
         for user_id in (ids["user_a_id"], ids["user_b_id"]):
             user = session.get(User, user_id)
