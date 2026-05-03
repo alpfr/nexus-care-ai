@@ -1,0 +1,36 @@
+Nexus Care AI {{ .Chart.AppVersion }} has been deployed to namespace
+"{{ .Release.Namespace }}" with release name "{{ .Release.Name }}".
+
+Services:
+{{- if .Values.api.enabled }}
+  - api       (port 80 in cluster, deployment {{ include "nexus-care.fullname" . }}-api)
+{{- end }}
+{{- if .Values.platform.enabled }}
+  - platform  (port 80 in cluster, deployment {{ include "nexus-care.fullname" . }}-platform)
+{{- end }}
+{{- if .Values.web.enabled }}
+  - web       (port 80 in cluster, deployment {{ include "nexus-care.fullname" . }}-web)
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+Public URL(s):
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}/
+{{- end }}
+
+(Wait a few minutes for the GCE Load Balancer to provision an external IP
+and the managed certificate to validate. Check progress with:)
+
+  kubectl -n {{ .Release.Namespace }} describe ingress {{ include "nexus-care.fullname" . }}
+{{- end }}
+
+To check rollout status:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "nexus-care.fullname" . }}-api
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "nexus-care.fullname" . }}-platform
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "nexus-care.fullname" . }}-web
+
+Migrations were applied as a Helm pre-install/pre-upgrade Job. To inspect:
+
+  kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/component=migrate --tail=200

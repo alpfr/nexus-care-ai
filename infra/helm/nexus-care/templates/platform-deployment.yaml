@@ -1,0 +1,112 @@
+{{- if .Values.platform.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nexus-care.fullname" . }}-platform
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nexus-care.labels" . | nindent 4 }}
+    app.kubernetes.io/component: platform
+spec:
+  replicas: {{ .Values.platform.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nexus-care.selectorLabels" (dict "ctx" . "component" "platform") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexus-care.selectorLabels" (dict "ctx" . "component" "platform") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "nexus-care.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: platform
+          image: {{ include "nexus-care.image" (dict "ctx" . "service" "platform") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.platform.service.port }}
+              protocol: TCP
+          env:
+            - name: SERVICE
+              value: platform
+            - name: PORT
+              value: {{ .Values.platform.service.port | quote }}
+            - name: NEXUS_PLATFORM_DATABASE_URL
+              {{- if .Values.database.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.existingSecretKey }}
+              {{- else }}
+              value: {{ .Values.database.url | quote }}
+              {{- end }}
+            - name: NEXUS_PLATFORM_JWT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: platform_jwt_signing_key
+            {{- range $key, $value := .Values.platform.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.platform.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /api/platform/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/platform/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nexus-care.fullname" . }}-platform
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nexus-care.labels" . | nindent 4 }}
+    app.kubernetes.io/component: platform
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "nexus-care.selectorLabels" (dict "ctx" . "component" "platform") | nindent 4 }}
+{{- end }}

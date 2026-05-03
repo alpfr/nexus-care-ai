@@ -1,0 +1,9 @@
+apiVersion: v2
+name: nexus-care
+description: Nexus Care AI — multi-tenant LTC EHR with AI documentation assistant.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/alpfr/nexus-care-ai
+maintainers:
+  - name: alpfr

@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs on the same branch when a new push lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+  REGISTRY: us-central1-docker.pkg.dev
+  REGISTRY_PROJECT: alpfr-splunk-integration
+  REGISTRY_REPO: nexus-care
+
+jobs:
+  # ===========================================================================
+  # Backend lint + unit tests + integration tests
+  # ===========================================================================
+  backend:
+    name: Backend (lint + tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3-bookworm
+        env:
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus
+          POSTGRES_DB: nexus_care
+          POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexus -d nexus_care"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://nexus:nexus@localhost:5432/nexus_care
+      NEXUS_API_DATABASE_URL: postgresql+psycopg://nexus:nexus@localhost:5432/nexus_care
+      NEXUS_PLATFORM_DATABASE_URL: postgresql+psycopg://nexus:nexus@localhost:5432/nexus_care
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.2"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run migrations against CI Postgres
+        run: uv run alembic upgrade head
+
+      - name: Unit + integration tests
+        run: uv run pytest -v --tb=short
+
+  # ===========================================================================
+  # Frontend lint + typecheck + build
+  # ===========================================================================
+  frontend:
+    name: Frontend (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build (standalone)
+        run: bun run build
+        env:
+          NEXT_OUTPUT: standalone
+          NEXT_PUBLIC_API_BASE_URL: https://api.example.invalid
+
+  # ===========================================================================
+  # Docker images: build, vulnerability-scan with Trivy, push on main
+  # ===========================================================================
+  images:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    permissions:
+      contents: read
+      id-token: write  # for Workload Identity Federation on push to main
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            dockerfile: infra/docker/backend.Dockerfile
+            image: backend
+          - name: web
+            dockerfile: infra/docker/frontend.Dockerfile
+            image: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${REGISTRY}/${REGISTRY_PROJECT}/${REGISTRY_REPO}/${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: |
+            ${{ steps.tags.outputs.image_ref }}:${{ steps.tags.outputs.short_sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.tags.outputs.image_ref }}:${{ steps.tags.outputs.short_sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # ----- Push step: only on push to main -----
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Push image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.image_ref }}:${{ steps.tags.outputs.short_sha }}
+            ${{ steps.tags.outputs.image_ref }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max

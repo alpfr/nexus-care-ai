@@ -1,0 +1,172 @@
+# Default values for the Nexus Care AI Helm chart.
+#
+# These are the no-environment defaults — every real deployment overrides
+# them with a values file (values-staging.yaml, values-prod.yaml, etc.).
+# In particular, image.repository, secrets, and ingress.host MUST be set
+# per environment.
+
+# ---------------------------------------------------------------------------
+# Image / registry
+# ---------------------------------------------------------------------------
+image:
+  # Set per-environment. Examples:
+  #   us-central1-docker.pkg.dev/alpfr-splunk-integration/nexus-care
+  registry: ""
+  # Image tag. CI sets this to the git short SHA. Default 'latest' is for
+  # local-only experimentation; do not use 'latest' in production.
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# ---------------------------------------------------------------------------
+# Per-service config
+# ---------------------------------------------------------------------------
+api:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: backend  # joined with image.registry to form full ref
+  service:
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  env:
+    NEXUS_API_ENVIRONMENT: staging
+    NEXUS_API_LOG_LEVEL: INFO
+    WORKERS: "2"
+
+platform:
+  enabled: true
+  replicaCount: 1  # platform admin traffic is low-volume
+  image:
+    repository: backend
+  service:
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    NEXUS_PLATFORM_ENVIRONMENT: staging
+    NEXUS_PLATFORM_LOG_LEVEL: INFO
+    WORKERS: "1"
+
+web:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: web
+  service:
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    # Set per-environment to point at the public API URL the browser uses.
+    NEXT_PUBLIC_API_BASE_URL: ""
+
+# ---------------------------------------------------------------------------
+# Migrations job — runs once on each helm install/upgrade
+# ---------------------------------------------------------------------------
+migrate:
+  enabled: true
+  image:
+    repository: backend
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Database — referenced by URL, not provisioned by this chart.
+# In dev/staging: Cloud SQL via private IP or external service name.
+# In prod: Cloud SQL with HA replicas.
+# ---------------------------------------------------------------------------
+database:
+  # Either a literal URL, or set existingSecret + existingSecretKey to read
+  # it from a Kubernetes Secret (the External Secrets Operator pattern).
+  url: ""
+  existingSecret: ""
+  existingSecretKey: "url"
+
+# ---------------------------------------------------------------------------
+# Secrets — values that should NEVER live in a values file in source control.
+# Values come either from an existing Secret resource (pattern below) or from
+# External Secrets Operator (recommended in prod).
+# ---------------------------------------------------------------------------
+secrets:
+  # Name of the Kubernetes Secret containing JWT signing keys etc.
+  # The chart expects keys: api_jwt_signing_key, platform_jwt_signing_key.
+  existingSecret: nexus-care-secrets
+
+# ---------------------------------------------------------------------------
+# Ingress — public entry point. Path-based routing:
+#   /            → web
+#   /api/*       → api  (everything not /api/platform)
+#   /api/platform/* → platform
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: gce
+  annotations: {}
+  hosts:
+    - host: nexus-care.example.com
+      paths:
+        - path: /api/platform
+          pathType: Prefix
+          service: platform
+        - path: /api
+          pathType: Prefix
+          service: api
+        - path: /
+          pathType: Prefix
+          service: web
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Service-account (Workload Identity)
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""  # default: <release>-sa
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Pod-level
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ---------------------------------------------------------------------------
+# Common labels merged into every resource produced by the chart
+# ---------------------------------------------------------------------------
+commonLabels: {}
+commonAnnotations: {}

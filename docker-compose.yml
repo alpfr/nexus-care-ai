@@ -1,21 +1,21 @@
-# Local-dev Postgres for Nexus Care AI.
+# Nexus Care AI — local-dev stack.
 #
-# Usage from repo root:
-#     docker compose up -d        # bring it up in the background
-#     docker compose logs -f db   # tail logs
-#     docker compose down         # stop (data persists)
-#     docker compose down -v      # stop and DELETE all data
+# Two profiles:
+#   (default)  — only Postgres. Use this when running api/platform/web from
+#                your shell during active development. Quick iteration, hot
+#                reload.
+#                  docker compose up -d
 #
-# Only Postgres for now — the API and frontend run from your shell during
-# tranche 2/3 development. The full stack lands in docker-compose in tranche 5.
+#   full       — full stack in containers (Postgres + clinical API + platform
+#                API + frontend), built from the Dockerfiles in infra/docker/.
+#                Use this for "show this to someone" demos or to verify the
+#                images build correctly.
+#                  docker compose --profile full up --build
 #
-# Port 5433 is used (not 5432) because port 5432 is taken on this machine
-# by another Docker container.
-#
-# IMPORTANT: Postgres 18+ requires the data volume mounted at
-# /var/lib/postgresql (NOT /var/lib/postgresql/data as in older versions).
-# The image places version-specific subdirectories under there. See:
-# https://github.com/docker-library/postgres/pull/1259
+# Inside containers, services reach each other by service name (not localhost).
+#   api:8000             ← clinical API
+#   platform:8000        ← platform API
+#   db:5432              ← postgres
 
 services:
   db:
@@ -36,6 +36,87 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # ----- profile: full -----
+  migrate:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    container_name: nexus_care_migrate
+    environment:
+      SERVICE: migrate
+      DATABASE_URL: postgresql+psycopg://nexus:nexus@db:5432/nexus_care
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    container_name: nexus_care_api
+    environment:
+      SERVICE: api
+      SERVICE_HEALTH_PATH: health
+      PORT: "8000"
+      WORKERS: "2"
+      NEXUS_API_DATABASE_URL: postgresql+psycopg://nexus:nexus@db:5432/nexus_care
+      NEXUS_API_ENVIRONMENT: development
+      NEXUS_API_FRONTEND_ORIGIN: http://localhost:3001
+    ports:
+      - "18001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  platform:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    container_name: nexus_care_platform
+    environment:
+      SERVICE: platform
+      SERVICE_HEALTH_PATH: platform/health
+      PORT: "8000"
+      WORKERS: "2"
+      NEXUS_PLATFORM_DATABASE_URL: postgresql+psycopg://nexus:nexus@db:5432/nexus_care
+      NEXUS_PLATFORM_ENVIRONMENT: development
+      NEXUS_PLATFORM_ADMIN_UI_ORIGIN: http://localhost:3001
+    ports:
+      - "18002:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://api:8000
+    container_name: nexus_care_web
+    environment:
+      # Inside the docker network, the api service is reachable at api:8000.
+      # The browser still sees the rewritten /api/* path on http://localhost:3001.
+      NEXT_PUBLIC_API_BASE_URL: http://api:8000
+      PORT: "3000"
+    ports:
+      - "3001:3000"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   nexus_care_pgdata:

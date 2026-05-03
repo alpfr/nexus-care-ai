@@ -1,0 +1,110 @@
+name: Deploy (staging)
+
+# Manual deploy only — operator clicks "Run workflow" in GitHub UI.
+# This is by design for now (per ADR-0001 / tranche-5 plan): we want to flip
+# to auto-deploy on merge later (tranche 8) once we have rollback safety nets.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: short SHA of main)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Render Helm manifests without applying'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  GCP_PROJECT: alpfr-splunk-integration
+  GCP_REGION: us-central1
+  CLUSTER_NAME: nexus-care-staging
+  CLUSTER_LOCATION: us-central1
+  HELM_RELEASE: nexus-care
+  HELM_NAMESPACE: nexus-care-staging
+  HELM_CHART_PATH: infra/helm/nexus-care
+
+jobs:
+  deploy:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compute image tag
+        id: tags
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install gke-gcloud-auth-plugin
+        run: gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "$CLUSTER_NAME" \
+            --location "$CLUSTER_LOCATION" \
+            --project "$GCP_PROJECT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.16.3"
+
+      - name: Helm lint
+        run: helm lint $HELM_CHART_PATH -f $HELM_CHART_PATH/values-gke-staging.yaml
+
+      - name: Helm dry-run (template)
+        run: |
+          helm template $HELM_RELEASE $HELM_CHART_PATH \
+            -f $HELM_CHART_PATH/values-gke-staging.yaml \
+            --set image.tag=${{ steps.tags.outputs.tag }} \
+            --namespace $HELM_NAMESPACE > /tmp/rendered.yaml
+          echo "=== rendered manifests preview (first 200 lines) ==="
+          head -200 /tmp/rendered.yaml
+
+      - name: Helm upgrade --install
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          helm upgrade --install $HELM_RELEASE $HELM_CHART_PATH \
+            -f $HELM_CHART_PATH/values-gke-staging.yaml \
+            --set image.tag=${{ steps.tags.outputs.tag }} \
+            --namespace $HELM_NAMESPACE \
+            --create-namespace \
+            --atomic \
+            --timeout 8m \
+            --wait
+
+      - name: Verify rollout
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          kubectl -n $HELM_NAMESPACE rollout status \
+            deployment/${HELM_RELEASE}-api --timeout=2m
+          kubectl -n $HELM_NAMESPACE rollout status \
+            deployment/${HELM_RELEASE}-platform --timeout=2m
+          kubectl -n $HELM_NAMESPACE rollout status \
+            deployment/${HELM_RELEASE}-web --timeout=2m
+
+      - name: Print release summary
+        if: always()
+        run: |
+          helm -n $HELM_NAMESPACE list | tee
+          kubectl -n $HELM_NAMESPACE get pods,svc,ingress

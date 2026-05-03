@@ -1,0 +1,68 @@
+# Helm values for STAGING on GKE.
+#
+# Used by `helm upgrade --install ... -f values.yaml -f values-gke-staging.yaml`.
+# Only fields that DIFFER from the chart defaults belong here.
+
+image:
+  registry: us-central1-docker.pkg.dev/alpfr-splunk-integration/nexus-care
+  tag: latest  # CI overrides via --set image.tag=<short-sha>
+  pullPolicy: IfNotPresent
+
+api:
+  replicaCount: 2
+  env:
+    NEXUS_API_ENVIRONMENT: staging
+    NEXUS_API_LOG_LEVEL: INFO
+
+platform:
+  replicaCount: 1
+  env:
+    NEXUS_PLATFORM_ENVIRONMENT: staging
+    NEXUS_PLATFORM_LOG_LEVEL: INFO
+
+web:
+  replicaCount: 2
+  env:
+    # Same domain as ingress host, since /api is path-routed by the ingress.
+    NEXT_PUBLIC_API_BASE_URL: https://staging.nexus-care.example.com
+
+database:
+  # Cloud SQL via private IP, surfaced via External Secrets Operator into a
+  # Kubernetes Secret named nexus-care-secrets.
+  existingSecret: nexus-care-secrets
+  existingSecretKey: database_url
+
+secrets:
+  existingSecret: nexus-care-secrets
+
+ingress:
+  enabled: true
+  className: gce
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: nexus-care-staging-ip
+    networking.gke.io/managed-certificates: nexus-care-staging-cert
+    kubernetes.io/ingress.allow-http: "false"
+  hosts:
+    - host: staging.nexus-care.example.com
+      paths:
+        - path: /api/platform
+          pathType: Prefix
+          service: platform
+        - path: /api
+          pathType: Prefix
+          service: api
+        - path: /
+          pathType: Prefix
+          service: web
+
+serviceAccount:
+  create: true
+  annotations:
+    # Workload Identity Federation: bind this k8s SA to a GCP IAM SA so
+    # pods can talk to Cloud SQL Auth Proxy / GCS / Secret Manager without
+    # JSON keys. Replace the GSA after creating it.
+    iam.gke.io/gcp-service-account: "nexus-care-staging@alpfr-splunk-integration.iam.gserviceaccount.com"
+
+commonLabels:
+  app.kubernetes.io/part-of: nexus-care
+  environment: staging
