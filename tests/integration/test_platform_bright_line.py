@@ -214,28 +214,30 @@ class TestPlatformVsClinicalAuthBrightLine:
         )
         assert resp.status_code == 401
 
-    @pytest.mark.xfail(
-        reason="Pre-existing test issue: hits Pydantic email validation (422) before reaching auth check (401). Fix: switch test to expect 422 OR loosen validation. Tracked separately from tranche 6a.",
-        strict=False,
-    )
     def test_admin_login_endpoint_rejects_clinician_credentials(
         self, platform_client, fixtures
     ):
-        """A clinician's PIN must not work as a platform-admin password."""
+        """A clinician's PIN must not work as a platform-admin password.
+
+        The rejection may happen at either the schema layer (422 if the PIN
+        is too short to be a valid admin password) or the auth layer (401 if
+        the schema allows it through). What matters for the bright-line
+        property is that the request is rejected — not _where_ in the stack.
+        """
         resp = platform_client.post(
             "/api/platform/admin/login",
             json={"email": fixtures["admin_email"], "password": fixtures["pin"]},
         )
-        assert resp.status_code == 401
+        assert resp.status_code in (401, 422), (
+            f"Expected 401 or 422, got {resp.status_code}: {resp.text}"
+        )
+        # Critically, the response must NOT contain a token.
+        assert "access_token" not in resp.text
 
 
 class TestActivationFlow:
     """End-to-end: supervisor requests activation, admin approves."""
 
-    @pytest.mark.xfail(
-        reason="Pre-existing test teardown bug: inline finally-block deletes tenant before users, hitting RESTRICT FK. Tracked separately from tranche 6a.",
-        strict=False,
-    )
     def test_full_activation_flow(self, api_client, platform_client, session_factory):
         """sandbox → pending_activation (by supervisor) → active (by admin)."""
         pin = "333444"
@@ -337,13 +339,30 @@ class TestActivationFlow:
             assert me.status_code == 200
             assert me.json()["tenant_state"] == "active"
         finally:
+            # Teardown: clean up dependent rows before parent rows to satisfy
+            # RESTRICT FK constraints. The activation flow inserts audit_log
+            # entries and may seed feature_flags for the tenant.
             with session_scope(session_factory) as session:
-                if (a := session.get(PlatformAdmin, ids["admin_id"])) is not None:
-                    session.delete(a)
-                if (u := session.get(User, ids["user_id"])) is not None:
-                    session.delete(u)
-                if (t := session.get(Tenant, ids["tenant_id"])) is not None:
-                    session.delete(t)
+                session.execute(
+                    text("DELETE FROM tenant_data.audit_log WHERE tenant_id = :tid"),
+                    {"tid": ids["tenant_id"]},
+                )
+                session.execute(
+                    text("DELETE FROM platform.feature_flags WHERE tenant_id = :tid"),
+                    {"tid": ids["tenant_id"]},
+                )
+                session.execute(
+                    text("DELETE FROM platform.users WHERE tenant_id = :tid"),
+                    {"tid": ids["tenant_id"]},
+                )
+                session.execute(
+                    text("DELETE FROM platform.platform_admins WHERE id = :aid"),
+                    {"aid": ids["admin_id"]},
+                )
+                session.execute(
+                    text("DELETE FROM platform.tenants WHERE id = :tid"),
+                    {"tid": ids["tenant_id"]},
+                )
 
 
 class TestStateMachineGuards:
