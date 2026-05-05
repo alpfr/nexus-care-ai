@@ -160,18 +160,18 @@ jobs:
 
       # ----- Push step: only on push to main -----
       - name: Authenticate to Google Cloud
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_GCP_PUSH == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
 
       - name: Configure Docker for Artifact Registry
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_GCP_PUSH == 'true'
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
       - name: Push image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_GCP_PUSH == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
