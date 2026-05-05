@@ -73,10 +73,28 @@ export default function AdmitResidentPage() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      // Strip empty strings → undefined so backend validators don't trip.
-      const cleaned: CreateResidentRequest = Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, v === "" ? undefined : v]),
-      ) as CreateResidentRequest;
+      // Required fields are guaranteed by Zod validation; strip empty strings
+      // from optional fields so backend validators see undefined instead of "".
+      const emptyToUndef = (v: string | undefined | null) =>
+        v === "" || v == null ? undefined : v;
+      const cleaned: CreateResidentRequest = {
+        legal_first_name: data.legal_first_name,
+        legal_last_name: data.legal_last_name,
+        date_of_birth: data.date_of_birth,
+        admission_date: data.admission_date,
+        code_status: data.code_status,
+        fall_risk: data.fall_risk,
+        preferred_name: emptyToUndef(data.preferred_name),
+        gender: emptyToUndef(data.gender),
+        room: emptyToUndef(data.room),
+        bed: emptyToUndef(data.bed),
+        allergies_summary: emptyToUndef(data.allergies_summary),
+        primary_physician_name: emptyToUndef(data.primary_physician_name),
+        emergency_contact_name: emptyToUndef(data.emergency_contact_name),
+        emergency_contact_relationship: emptyToUndef(data.emergency_contact_relationship),
+        emergency_contact_phone: emptyToUndef(data.emergency_contact_phone),
+        chart_note: emptyToUndef(data.chart_note),
+      };
       await mutation.mutateAsync(cleaned);
     } catch (e) {
       if (e instanceof ApiError) {
