@@ -1,0 +1,12 @@
+# CVE entries we've reviewed and explicitly accepted.
+# Format: CVE ID per line, with rationale + expiration in the comment above.
+# Re-evaluate quarterly. Entries past expiration must be remediated or rejustified.
+
+# CVE-2026-33671 — picomatch ReDoS via crafted extglob patterns.
+# Fixed in picomatch >=4.0.4. Currently in 4.0.3 via transitive dep of
+# Next.js build tooling. Build-time only; no user-supplied glob patterns
+# reach picomatch in our pipeline. Override in apps/web/package.json
+# attempts to lift the version but Docker build resolution doesn't honor
+# it consistently. To revisit alongside Next.js toolchain bumps.
+# exp:2026-08-04
+CVE-2026-33671
