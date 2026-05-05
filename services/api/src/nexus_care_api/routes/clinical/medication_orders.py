@@ -26,12 +26,11 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from nexus_care_db import Medication, MedicationOrder, Resident
+from nexus_care_tenancy import assert_can_write_phi, current_tenant_id
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from nexus_care_db import Medication, MedicationOrder, Resident
-from nexus_care_tenancy import assert_can_write_phi, current_tenant_id
 
 from nexus_care_api.deps import AuthenticatedUser, get_db, require_user
 from nexus_care_api.routes.clinical._audit import record_audit
@@ -47,9 +46,20 @@ flat_router = APIRouter(prefix="/medication-orders", tags=["medication-orders"])
 # ---------------------------------------------------------------------------
 OrderStatus = Literal["pending", "active", "held", "discontinued"]
 Route = Literal[
-    "oral", "sublingual", "topical", "transdermal", "inhaled",
-    "nebulized", "subcutaneous", "intramuscular", "intravenous",
-    "rectal", "ophthalmic", "otic", "nasal", "other",
+    "oral",
+    "sublingual",
+    "topical",
+    "transdermal",
+    "inhaled",
+    "nebulized",
+    "subcutaneous",
+    "intramuscular",
+    "intravenous",
+    "rectal",
+    "ophthalmic",
+    "otic",
+    "nasal",
+    "other",
 ]
 
 
@@ -78,7 +88,7 @@ class MedicationOrderOut(BaseModel):
     updated_at: dt.datetime
 
     @classmethod
-    def from_model(cls, o: MedicationOrder, med: Medication) -> "MedicationOrderOut":
+    def from_model(cls, o: MedicationOrder, med: Medication) -> MedicationOrderOut:
         return cls(
             id=o.id,
             resident_id=o.resident_id,
@@ -124,15 +134,11 @@ class CreateMedicationOrderRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check_prn_consistency(self) -> "CreateMedicationOrderRequest":
+    def _check_prn_consistency(self) -> CreateMedicationOrderRequest:
         if self.is_prn and not self.prn_indication:
             raise ValueError("prn_indication is required when is_prn is true")
-        if not self.is_prn and (
-            self.prn_indication or self.prn_max_doses_per_24h is not None
-        ):
-            raise ValueError(
-                "prn_indication / prn_max_doses_per_24h require is_prn to be true"
-            )
+        if not self.is_prn and (self.prn_indication or self.prn_max_doses_per_24h is not None):
+            raise ValueError("prn_indication / prn_max_doses_per_24h require is_prn to be true")
         if self.end_date and self.end_date < self.start_date:
             raise ValueError("end_date cannot be before start_date")
         return self
@@ -174,9 +180,7 @@ def _scoped_order(stmt):
     return stmt.where(MedicationOrder.tenant_id == current_tenant_id())
 
 
-def _load_order_with_med(
-    db: Session, order_id: int
-) -> tuple[MedicationOrder, Medication]:
+def _load_order_with_med(db: Session, order_id: int) -> tuple[MedicationOrder, Medication]:
     order = db.execute(
         _scoped_order(select(MedicationOrder).where(MedicationOrder.id == order_id))
     ).scalar_one_or_none()
@@ -214,12 +218,9 @@ def list_orders_for_resident(
     if resident is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resident not found")
 
-    stmt = (
-        _scoped_order(
-            select(MedicationOrder).where(MedicationOrder.resident_id == resident_id)
-        )
-        .order_by(MedicationOrder.start_date.desc(), MedicationOrder.id.desc())
-    )
+    stmt = _scoped_order(
+        select(MedicationOrder).where(MedicationOrder.resident_id == resident_id)
+    ).order_by(MedicationOrder.start_date.desc(), MedicationOrder.id.desc())
     if include == "active":
         stmt = stmt.where(MedicationOrder.status == "active")
     elif include in {"discontinued", "pending", "held"}:
@@ -229,9 +230,7 @@ def list_orders_for_resident(
     # Bulk-fetch medications to avoid N+1 in serialization.
     med_ids = {o.medication_id for o in orders}
     meds = (
-        db.execute(select(Medication).where(Medication.id.in_(med_ids)))
-        .scalars()
-        .all()
+        db.execute(select(Medication).where(Medication.id.in_(med_ids))).scalars().all()
         if med_ids
         else []
     )
@@ -411,9 +410,7 @@ def transition_order(
 
     # Permission gating.
     activation_transitions = {("pending", "active"), ("held", "active")}
-    requires_supervisor = (
-        target == "discontinued" or (current, target) in activation_transitions
-    )
+    requires_supervisor = target == "discontinued" or (current, target) in activation_transitions
     if requires_supervisor and user.role not in {"supervisor", "tenant_admin"}:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,

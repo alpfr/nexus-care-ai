@@ -12,11 +12,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.orm import Session, sessionmaker
-
 from nexus_care_auth import InvalidTokenError, verify_token
 from nexus_care_db import PlatformAdmin
 from nexus_care_db.session import make_engine, make_session_factory
+from sqlalchemy.orm import Session, sessionmaker
 
 from nexus_care_platform.settings import Settings, get_settings
 
@@ -31,7 +30,7 @@ def _get_session_factory() -> sessionmaker[Session]:
     return make_session_factory(engine)
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     factory = _get_session_factory()
     session = factory()
     try:

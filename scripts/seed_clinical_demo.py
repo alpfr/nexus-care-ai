@@ -13,11 +13,10 @@ import datetime as dt
 import os
 import sys
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from nexus_care_db import Medication, MedicationOrder, Resident, Tenant
 from nexus_care_db.session import make_engine, make_session_factory, session_scope
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 def _ensure_med(

@@ -25,7 +25,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 
 
-class TenantState(str, enum.Enum):
+class TenantState(enum.StrEnum):
     """Lifecycle state of a tenant.
 
     The state machine is documented in ARCHITECTURE.md. The critical invariant
@@ -86,9 +86,7 @@ class PHIWriteForbiddenError(PermissionError):
     """
 
 
-def set_tenant_context(
-    *, tenant_id: int, state: TenantState, region_code: str
-) -> TenantContext:
+def set_tenant_context(*, tenant_id: int, state: TenantState, region_code: str) -> TenantContext:
     """Set the tenant context for the current request. Called by middleware."""
     ctx = TenantContext(tenant_id=tenant_id, state=state, region_code=region_code)
     _tenant_ctx.set(ctx)
@@ -149,8 +147,7 @@ def assert_can_write() -> None:
     ctx = current_tenant()
     if ctx.is_readonly:
         raise PermissionError(
-            f"Tenant {ctx.tenant_id} is in state {ctx.state.value!r}; "
-            "writes are blocked."
+            f"Tenant {ctx.tenant_id} is in state {ctx.state.value!r}; writes are blocked."
         )
 
 

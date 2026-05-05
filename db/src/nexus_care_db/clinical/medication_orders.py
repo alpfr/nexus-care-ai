@@ -20,7 +20,7 @@ UI; the state exists for facilities that have a pharmacist-review workflow.
 
 Held = temporarily paused. A held order does not appear on the eMAR for
 administration but the order itself is preserved. Common reasons:
-"NPO before surgery," "elevated INR — hold warfarin × 1 dose."
+"NPO before surgery," "elevated INR — hold warfarin x 1 dose."
 
 Discontinued is terminal (no transitions out). Re-prescribing creates a
 new order, which is correct: a new clinical decision deserves a new audit

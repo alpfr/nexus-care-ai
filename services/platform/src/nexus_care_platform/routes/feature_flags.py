@@ -5,11 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from nexus_care_db import FeatureFlag, Tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from nexus_care_db import FeatureFlag, Tenant
 
 from nexus_care_platform.deps import AuthenticatedAdmin, get_db, require_admin
 
@@ -62,9 +61,7 @@ def set_flag(
     """Upsert: if the (tenant, flag_key) row exists, update it; otherwise create."""
     tenant = db.get(Tenant, payload.tenant_id)
     if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
 
     flag = db.execute(
         select(FeatureFlag).where(

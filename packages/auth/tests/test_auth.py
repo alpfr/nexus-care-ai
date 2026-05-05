@@ -4,7 +4,6 @@ import datetime as dt
 from dataclasses import dataclass
 
 import pytest
-
 from nexus_care_auth import (
     InvalidTokenError,
     PINMismatch,
@@ -37,7 +36,7 @@ class TestPIN:
             verify_pin("654321", h)
 
     def test_empty_pin_rejected_at_hash(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="empty"):
             hash_pin("")
 
     def test_garbage_hash_raises_pin_mismatch_not_some_other_error(self):

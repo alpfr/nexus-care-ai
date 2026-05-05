@@ -3,7 +3,6 @@
 import asyncio
 
 import pytest
-
 from nexus_care_tenancy import (
     PHIWriteForbiddenError,
     TenantNotSetError,
@@ -27,9 +26,7 @@ def clear_ctx_between_tests():
 
 class TestTenantContext:
     def test_set_and_read(self):
-        ctx = set_tenant_context(
-            tenant_id=42, state=TenantState.ACTIVE, region_code="us-central"
-        )
+        ctx = set_tenant_context(tenant_id=42, state=TenantState.ACTIVE, region_code="us-central")
         assert ctx.tenant_id == 42
         assert ctx.state is TenantState.ACTIVE
         assert ctx.region_code == "us-central"

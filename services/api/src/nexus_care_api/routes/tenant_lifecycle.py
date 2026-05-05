@@ -14,10 +14,9 @@ from __future__ import annotations
 import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from nexus_care_db import Tenant
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
-from nexus_care_db import Tenant
 
 from nexus_care_api.deps import AuthenticatedUser, get_db, require_user
 
@@ -56,9 +55,7 @@ def request_activation(
 
     tenant = db.get(Tenant, user.tenant_id)
     if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
 
     if tenant.state == "pending_activation":
         return RequestActivationResponse(

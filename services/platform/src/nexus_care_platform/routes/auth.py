@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
+from contextlib import suppress
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from nexus_care_auth import (
     PasswordMismatch,
     hash_password,
@@ -17,6 +14,9 @@ from nexus_care_auth import (
     verify_password,
 )
 from nexus_care_db import PlatformAdmin
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from nexus_care_platform.deps import AuthenticatedAdmin, get_db, require_admin
 from nexus_care_platform.settings import Settings, get_settings
@@ -62,10 +62,8 @@ def admin_login(
     if admin is None:
         # Burn an Argon2 verify on the dummy hash so failure timing doesn't
         # reveal whether the email exists.
-        try:
+        with suppress(PasswordMismatch):
             verify_password("dummy", _DUMMY_HASH)
-        except PasswordMismatch:
-            pass
         raise GENERIC_LOGIN_FAIL
 
     if not admin.is_active:
@@ -79,9 +77,7 @@ def admin_login(
     except PasswordMismatch:
         admin.failed_login_count += 1
         if admin.failed_login_count >= settings.failed_login_lock_threshold:
-            admin.locked_until = now + dt.timedelta(
-                minutes=settings.lockout_minutes
-            )
+            admin.locked_until = now + dt.timedelta(minutes=settings.lockout_minutes)
         db.commit()
         raise GENERIC_LOGIN_FAIL from None
 

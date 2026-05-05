@@ -24,14 +24,10 @@ def create_app() -> FastAPI:
             "SaaS platform admin service for Nexus Care AI. "
             "Tenant lifecycle, feature flags, and (future) billing."
         ),
-        docs_url=(
-            "/api/platform/docs" if settings.environment == "development" else None
-        ),
+        docs_url=("/api/platform/docs" if settings.environment == "development" else None),
         redoc_url=None,
         openapi_url=(
-            "/api/platform/openapi.json"
-            if settings.environment == "development"
-            else None
+            "/api/platform/openapi.json" if settings.environment == "development" else None
         ),
     )
 

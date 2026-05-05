@@ -17,13 +17,12 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
-
 from nexus_care_auth import can
 from nexus_care_db import Resident
 from nexus_care_tenancy import assert_can_write_phi, current_tenant_id
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from nexus_care_api.deps import AuthenticatedUser, get_db, require_user
 from nexus_care_api.routes.clinical._audit import record_audit
@@ -54,7 +53,7 @@ class ResidentSummary(BaseModel):
     fall_risk: FallRisk
 
     @classmethod
-    def from_model(cls, r: Resident) -> "ResidentSummary":
+    def from_model(cls, r: Resident) -> ResidentSummary:
         return cls(
             id=r.id,
             legal_first_name=r.legal_first_name,
@@ -85,7 +84,7 @@ class ResidentDetail(ResidentSummary):
     updated_at: dt.datetime
 
     @classmethod
-    def from_model(cls, r: Resident) -> "ResidentDetail":
+    def from_model(cls, r: Resident) -> ResidentDetail:
         base = ResidentSummary.from_model(r)
         return cls(
             **base.model_dump(),
@@ -204,9 +203,7 @@ def list_residents(
     if not can(user, "read", "resident"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
 
-    stmt = _scoped(select(Resident)).order_by(
-        Resident.legal_last_name, Resident.legal_first_name
-    )
+    stmt = _scoped(select(Resident)).order_by(Resident.legal_last_name, Resident.legal_first_name)
     if include == "active":
         stmt = stmt.where(Resident.status == "admitted")
     elif include == "discharged":
@@ -298,9 +295,7 @@ def update_resident(
     new_room = update_data.get("room", resident.room)
     new_bed = update_data.get("bed", resident.bed)
     if (new_room, new_bed) != (resident.room, resident.bed):
-        _check_room_bed_unique(
-            db, room=new_room, bed=new_bed, exclude_id=resident.id
-        )
+        _check_room_bed_unique(db, room=new_room, bed=new_bed, exclude_id=resident.id)
 
     for key, value in update_data.items():
         if getattr(resident, key) != value:

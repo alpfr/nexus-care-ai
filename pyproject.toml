@@ -74,11 +74,18 @@ ignore = [
     "E501",
     "S101",
     "S104",
+    # FastAPI requires Depends() in argument defaults — this is the documented pattern.
+    "B008",
+    # `token_type: str = "bearer"` is the OAuth2 token type literal, not a password.
+    "S105",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S", "N", "B"]
 "db/alembic/env.py" = ["E402"]
+# Exception names are a deliberate API choice for fluent except-block reading.
+"packages/auth/src/nexus_care_auth/password.py" = ["N818"]
+"packages/auth/src/nexus_care_auth/pin.py" = ["N818"]
 
 [tool.ruff.format]
 quote-style = "double"

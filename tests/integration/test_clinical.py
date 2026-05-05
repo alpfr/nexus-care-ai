@@ -21,14 +21,11 @@ import secrets
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
-
-from nexus_care_auth import hash_pin
-from nexus_care_db import AuditLog, Medication, MedicationOrder, Resident, Tenant, User
-from nexus_care_db.session import make_engine, make_session_factory, session_scope
-
 from nexus_care_api.app import create_app
-
+from nexus_care_auth import hash_pin
+from nexus_care_db import AuditLog, Tenant, User
+from nexus_care_db.session import make_engine, make_session_factory, session_scope
+from sqlalchemy import select
 
 pytestmark = pytest.mark.integration
 
@@ -67,18 +64,14 @@ def _unique_facility_code(prefix: str) -> str:
     return f"{prefix}-{secrets.token_hex(4)}"
 
 
-def _make_tenant(
-    db, *, name: str, facility_code: str, state: str = "active"
-) -> Tenant:
+def _make_tenant(db, *, name: str, facility_code: str, state: str = "active") -> Tenant:
     tenant = Tenant(name=name, facility_code=facility_code, state=state)
     db.add(tenant)
     db.flush()
     return tenant
 
 
-def _make_user(
-    db, *, tenant_id: int, full_name: str, role: str, pin: str
-) -> User:
+def _make_user(db, *, tenant_id: int, full_name: str, role: str, pin: str) -> User:
     user = User(
         tenant_id=tenant_id,
         full_name=full_name,
@@ -176,9 +169,7 @@ def _admit_payload(**overrides):
 
 
 class TestResidentIsolation:
-    def test_residents_are_scoped_to_tenant(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_residents_are_scoped_to_tenant(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token_a = _login(client, ctx["tenant_a"], ctx["pin_a"])
         token_b = _login(client, ctx["tenant_b"], ctx["pin_b"])
@@ -219,9 +210,7 @@ class TestResidentIsolation:
 
 
 class TestPHIWriteGuard:
-    def test_sandbox_tenant_cannot_admit_residents(
-        self, client, sandbox_tenant_with_supervisor
-    ):
+    def test_sandbox_tenant_cannot_admit_residents(self, client, sandbox_tenant_with_supervisor):
         ctx = sandbox_tenant_with_supervisor
         token = _login(client, ctx["facility_code"], ctx["pin"])
 
@@ -256,18 +245,14 @@ class TestPHIWriteGuard:
 
 
 class TestRoomBedUniqueness:
-    def test_two_residents_cannot_share_a_bed(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_two_residents_cannot_share_a_bed(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
 
         # First resident takes 101-A.
         resp = client.post(
             "/api/residents",
-            json=_admit_payload(
-                legal_last_name="Alpha", room="101", bed="A"
-            ),
+            json=_admit_payload(legal_last_name="Alpha", room="101", bed="A"),
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 201
@@ -275,17 +260,13 @@ class TestRoomBedUniqueness:
         # Second resident attempting 101-A is rejected.
         resp = client.post(
             "/api/residents",
-            json=_admit_payload(
-                legal_last_name="Beta", room="101", bed="A"
-            ),
+            json=_admit_payload(legal_last_name="Beta", room="101", bed="A"),
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 409
         assert "already occupied" in resp.json()["detail"].lower()
 
-    def test_same_bed_in_a_different_tenant_is_fine(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_same_bed_in_a_different_tenant_is_fine(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token_a = _login(client, ctx["tenant_a"], ctx["pin_a"])
         token_b = _login(client, ctx["tenant_b"], ctx["pin_b"])
@@ -307,9 +288,7 @@ class TestRoomBedUniqueness:
 
 
 class TestFormularyUniqueness:
-    def test_duplicate_drug_at_same_strength_rejected(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_duplicate_drug_at_same_strength_rejected(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
 
@@ -327,9 +306,7 @@ class TestFormularyUniqueness:
         assert resp.status_code == 409
         assert "already in the formulary" in resp.json()["detail"].lower()
 
-    def test_same_drug_different_strength_allowed(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_same_drug_different_strength_allowed(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
 
@@ -395,9 +372,7 @@ class TestWitnessFlagAutoSet:
         assert order_resp.status_code == 201, order_resp.text
         assert order_resp.json()["witness_required"] is True
 
-    def test_uncontrolled_drug_does_not_flag_witness(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_uncontrolled_drug_does_not_flag_witness(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
 
@@ -468,9 +443,7 @@ class TestOrderStateMachine:
         o_resp.raise_for_status()
         return o_resp.json()["id"]
 
-    def test_active_to_held_with_reason_succeeds(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_active_to_held_with_reason_succeeds(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
         order_id = self._make_active_order(client, token)
@@ -484,9 +457,7 @@ class TestOrderStateMachine:
         assert resp.json()["status"] == "held"
         assert resp.json()["status_reason"] == "NPO before procedure"
 
-    def test_held_without_reason_rejected(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_held_without_reason_rejected(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
         order_id = self._make_active_order(client, token)
@@ -499,9 +470,7 @@ class TestOrderStateMachine:
         assert resp.status_code == 422
         assert "reason is required" in resp.json()["detail"].lower()
 
-    def test_discontinued_to_active_is_illegal(
-        self, client, two_tenants_with_supervisors
-    ):
+    def test_discontinued_to_active_is_illegal(self, client, two_tenants_with_supervisors):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
         order_id = self._make_active_order(client, token)
@@ -522,9 +491,7 @@ class TestOrderStateMachine:
 
 
 class TestAuditLogging:
-    def test_admit_records_audit_entry(
-        self, client, two_tenants_with_supervisors, session_factory
-    ):
+    def test_admit_records_audit_entry(self, client, two_tenants_with_supervisors, session_factory):
         ctx = two_tenants_with_supervisors
         token = _login(client, ctx["tenant_a"], ctx["pin_a"])
 

@@ -38,9 +38,7 @@ from nexus_care_db.base import PLATFORM_SCHEMA, Base, TimestampMixin
 class FeatureFlag(Base, TimestampMixin):
     __tablename__ = "feature_flags"
     __table_args__ = (
-        UniqueConstraint(
-            "tenant_id", "flag_key", name="uq_feature_flags_tenant_id_flag_key"
-        ),
+        UniqueConstraint("tenant_id", "flag_key", name="uq_feature_flags_tenant_id_flag_key"),
         {"schema": PLATFORM_SCHEMA},
     )
 
@@ -54,9 +52,7 @@ class FeatureFlag(Base, TimestampMixin):
     )
 
     flag_key: Mapped[str] = mapped_column(String(64), nullable=False)
-    enabled: Mapped[bool] = mapped_column(
-        nullable=False, server_default=text("false")
-    )
+    enabled: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
 
     # Optional config (numeric thresholds, allowed roles, etc.). Keep it
     # JSON so we don't churn the schema for every new knob.

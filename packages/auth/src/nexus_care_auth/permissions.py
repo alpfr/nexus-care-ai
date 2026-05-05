@@ -46,93 +46,105 @@ from typing import Protocol
 # Order matters — the first match wins. Negative permissions are not modeled
 # here; if a role shouldn't do something, just don't list it.
 
-_NURSE: frozenset[tuple[str, str]] = frozenset({
-    ("read", "resident"),
-    ("update", "resident"),
-    ("read", "medication"),
-    ("read", "medication_order"),
-    ("administer", "med_pass"),
-    ("read", "med_pass"),
-    ("create", "med_pass"),
-    ("create", "clinical_note"),
-    ("read", "clinical_note"),
-    ("update", "clinical_note"),
-    ("create", "soap_note"),
-    ("read", "soap_note"),
-    ("create", "vital_sign"),
-    ("read", "vital_sign"),
-    ("create", "adl_assessment"),
-    ("read", "adl_assessment"),
-    ("read", "care_plan"),
-    ("read", "physician_order"),
-    ("read", "consent"),
-    ("create", "incident_report"),
-    ("read", "incident_report"),
-})
+_NURSE: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("read", "resident"),
+        ("update", "resident"),
+        ("read", "medication"),
+        ("read", "medication_order"),
+        ("administer", "med_pass"),
+        ("read", "med_pass"),
+        ("create", "med_pass"),
+        ("create", "clinical_note"),
+        ("read", "clinical_note"),
+        ("update", "clinical_note"),
+        ("create", "soap_note"),
+        ("read", "soap_note"),
+        ("create", "vital_sign"),
+        ("read", "vital_sign"),
+        ("create", "adl_assessment"),
+        ("read", "adl_assessment"),
+        ("read", "care_plan"),
+        ("read", "physician_order"),
+        ("read", "consent"),
+        ("create", "incident_report"),
+        ("read", "incident_report"),
+    }
+)
 
-_MED_TECH: frozenset[tuple[str, str]] = frozenset({
-    ("read", "resident"),
-    ("read", "medication"),
-    ("read", "medication_order"),
-    ("administer", "med_pass"),
-    ("create", "med_pass"),
-    ("read", "med_pass"),
-})
+_MED_TECH: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("read", "resident"),
+        ("read", "medication"),
+        ("read", "medication_order"),
+        ("administer", "med_pass"),
+        ("create", "med_pass"),
+        ("read", "med_pass"),
+    }
+)
 
-_CAREGIVER: frozenset[tuple[str, str]] = frozenset({
-    ("read", "resident"),
-    ("create", "vital_sign"),
-    ("read", "vital_sign"),
-    ("create", "adl_assessment"),
-    ("read", "adl_assessment"),
-    ("create", "incident_report"),
-    ("read", "incident_report"),
-})
+_CAREGIVER: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("read", "resident"),
+        ("create", "vital_sign"),
+        ("read", "vital_sign"),
+        ("create", "adl_assessment"),
+        ("read", "adl_assessment"),
+        ("create", "incident_report"),
+        ("read", "incident_report"),
+    }
+)
 
-_SUPERVISOR: frozenset[tuple[str, str]] = frozenset({
-    *_NURSE,
-    # plus oversight
-    ("create", "mds_assessment"),
-    ("read", "mds_assessment"),
-    ("update", "mds_assessment"),
-    ("sign", "mds_assessment"),
-    ("create", "care_plan"),
-    ("update", "care_plan"),
-    ("read", "physician_order"),
-    ("create", "consent"),
-    ("update", "consent"),
-    ("update", "incident_report"),
-    ("read", "audit_log"),
-    ("read", "user"),
-})
+_SUPERVISOR: frozenset[tuple[str, str]] = frozenset(
+    {
+        *_NURSE,
+        # plus oversight
+        ("create", "mds_assessment"),
+        ("read", "mds_assessment"),
+        ("update", "mds_assessment"),
+        ("sign", "mds_assessment"),
+        ("create", "care_plan"),
+        ("update", "care_plan"),
+        ("read", "physician_order"),
+        ("create", "consent"),
+        ("update", "consent"),
+        ("update", "incident_report"),
+        ("read", "audit_log"),
+        ("read", "user"),
+    }
+)
 
-_TENANT_ADMIN: frozenset[tuple[str, str]] = frozenset({
-    *_SUPERVISOR,
-    ("create", "user"),
-    ("update", "user"),
-    ("delete", "user"),
-    ("read", "tenant"),
-    ("update", "tenant"),
-})
+_TENANT_ADMIN: frozenset[tuple[str, str]] = frozenset(
+    {
+        *_SUPERVISOR,
+        ("create", "user"),
+        ("update", "user"),
+        ("delete", "user"),
+        ("read", "tenant"),
+        ("update", "tenant"),
+    }
+)
 
-_PLATFORM_ADMIN: frozenset[tuple[str, str]] = frozenset({
-    # Platform admins do NOT inherit clinical permissions. They cannot read
-    # PHI through this helper — only manage tenants and platform-level data.
-    ("read", "tenant"),
-    ("create", "tenant"),
-    ("update", "tenant"),
-    ("delete", "tenant"),
-    ("read", "feature_flag"),
-    ("create", "feature_flag"),
-    ("update", "feature_flag"),
-    ("delete", "feature_flag"),
-    ("read", "baa_artifact"),
-    ("create", "baa_artifact"),
-    ("read", "identity_verification"),
-    ("update", "identity_verification"),
-    ("read", "subscription"),
-    ("update", "subscription"),
-})
+_PLATFORM_ADMIN: frozenset[tuple[str, str]] = frozenset(
+    {
+        # Platform admins do NOT inherit clinical permissions. They cannot read
+        # PHI through this helper — only manage tenants and platform-level data.
+        ("read", "tenant"),
+        ("create", "tenant"),
+        ("update", "tenant"),
+        ("delete", "tenant"),
+        ("read", "feature_flag"),
+        ("create", "feature_flag"),
+        ("update", "feature_flag"),
+        ("delete", "feature_flag"),
+        ("read", "baa_artifact"),
+        ("create", "baa_artifact"),
+        ("read", "identity_verification"),
+        ("update", "identity_verification"),
+        ("read", "subscription"),
+        ("update", "subscription"),
+    }
+)
 
 _ROLE_PERMISSIONS: Mapping[str, frozenset[tuple[str, str]]] = {
     "nurse": _NURSE,

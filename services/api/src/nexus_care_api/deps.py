@@ -26,8 +26,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.orm import Session, sessionmaker
-
 from nexus_care_auth import InvalidTokenError, verify_token
 from nexus_care_db import Tenant, User
 from nexus_care_db.session import make_engine, make_session_factory
@@ -38,6 +36,7 @@ from nexus_care_tenancy import (
     current_tenant,
     set_tenant_context,
 )
+from sqlalchemy.orm import Session, sessionmaker
 
 from nexus_care_api.settings import Settings, get_settings
 
@@ -56,7 +55,7 @@ def _get_session_factory() -> sessionmaker[Session]:
     return make_session_factory(engine)
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     """Yield a request-scoped DB session. Closed automatically when the
     request handler returns."""
     factory = _get_session_factory()
@@ -180,7 +179,7 @@ def require_tenant(
 # ---------------------------------------------------------------------------
 # Cleanup hook
 # ---------------------------------------------------------------------------
-def reset_tenant_context_after_request() -> Generator[None, None, None]:
+def reset_tenant_context_after_request() -> Generator[None]:
     """Use as a `dependency` on routers to clear the tenant context after the
     response is produced. Belt-and-suspenders — context vars in asyncio are
     task-local already, but explicit cleanup avoids any surprise leakage if

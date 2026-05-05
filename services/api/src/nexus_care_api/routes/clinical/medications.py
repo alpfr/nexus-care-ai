@@ -20,12 +20,11 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from nexus_care_db import Medication
+from nexus_care_tenancy import current_tenant_id
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from nexus_care_db import Medication
-from nexus_care_tenancy import current_tenant_id
 
 from nexus_care_api.deps import AuthenticatedUser, get_db, require_user
 from nexus_care_api.routes.clinical._audit import record_audit
@@ -38,9 +37,21 @@ router = APIRouter(prefix="/medications", tags=["medications"])
 # ---------------------------------------------------------------------------
 DEASchedule = Literal["none", "II", "III", "IV", "V"]
 MedForm = Literal[
-    "tablet", "capsule", "liquid", "oral_solution", "suspension",
-    "patch", "cream", "ointment", "inhaler", "nebulizer_solution",
-    "injection", "suppository", "eye_drop", "ear_drop", "other",
+    "tablet",
+    "capsule",
+    "liquid",
+    "oral_solution",
+    "suspension",
+    "patch",
+    "cream",
+    "ointment",
+    "inhaler",
+    "nebulizer_solution",
+    "injection",
+    "suppository",
+    "eye_drop",
+    "ear_drop",
+    "other",
 ]
 
 
@@ -57,7 +68,7 @@ class MedicationOut(BaseModel):
     display_name: str
 
     @classmethod
-    def from_model(cls, m: Medication) -> "MedicationOut":
+    def from_model(cls, m: Medication) -> MedicationOut:
         return cls(
             id=m.id,
             name=m.name,

@@ -30,11 +30,10 @@ import datetime as dt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from nexus_care_db import Tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from nexus_care_db import Tenant
 
 from nexus_care_platform.deps import AuthenticatedAdmin, get_db, require_admin
 
@@ -44,9 +43,7 @@ router = APIRouter(prefix="/tenants", tags=["tenants"])
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
-TenantState = Literal[
-    "sandbox", "pending_activation", "active", "suspended", "terminated"
-]
+TenantState = Literal["sandbox", "pending_activation", "active", "suspended", "terminated"]
 
 
 class TenantSummary(BaseModel):
@@ -105,9 +102,7 @@ def list_tenants(
     return [_to_summary(t) for t in rows]
 
 
-@router.post(
-    "", response_model=TenantSummary, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=TenantSummary, status_code=status.HTTP_201_CREATED)
 def create_tenant(
     payload: CreateTenantRequest,
     _admin: AuthenticatedAdmin = Depends(require_admin),
@@ -143,9 +138,7 @@ def get_tenant(
 ) -> TenantSummary:
     tenant = db.get(Tenant, tenant_id)
     if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
     return _to_summary(tenant)
 
 
@@ -158,9 +151,7 @@ def transition_state(
 ) -> TenantSummary:
     tenant = db.get(Tenant, tenant_id)
     if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
 
     current = tenant.state
     target = payload.target_state

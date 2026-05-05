@@ -18,18 +18,15 @@ from __future__ import annotations
 
 import os
 import secrets
-from sqlalchemy import text
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
-
+from nexus_care_api.app import create_app as create_api_app
 from nexus_care_auth import hash_password, hash_pin
 from nexus_care_db import PlatformAdmin, Tenant, User
 from nexus_care_db.session import make_engine, make_session_factory, session_scope
-
-from nexus_care_api.app import create_app as create_api_app
 from nexus_care_platform.app import create_app as create_platform_app
+from sqlalchemy import text
 
 pytestmark = pytest.mark.integration
 
@@ -171,9 +168,7 @@ class TestPlatformVsClinicalAuthBrightLine:
         )
         assert resp.status_code == 401
 
-    def test_clinician_token_cannot_list_tenants(
-        self, api_client, platform_client, fixtures
-    ):
+    def test_clinician_token_cannot_list_tenants(self, api_client, platform_client, fixtures):
         clinician_token = _login_clinician(api_client, fixtures)
         resp = platform_client.get(
             "/api/platform/tenants",
@@ -192,9 +187,7 @@ class TestPlatformVsClinicalAuthBrightLine:
         )
         assert resp.status_code == 401
 
-    def test_admin_token_cannot_call_clinical_me(
-        self, api_client, platform_client, fixtures
-    ):
+    def test_admin_token_cannot_call_clinical_me(self, api_client, platform_client, fixtures):
         """A platform-admin's JWT (signed with the platform key) must not
         authenticate against the clinical service."""
         admin_token = _login_admin(platform_client, fixtures)
@@ -214,9 +207,7 @@ class TestPlatformVsClinicalAuthBrightLine:
         )
         assert resp.status_code == 401
 
-    def test_admin_login_endpoint_rejects_clinician_credentials(
-        self, platform_client, fixtures
-    ):
+    def test_admin_login_endpoint_rejects_clinician_credentials(self, platform_client, fixtures):
         """A clinician's PIN must not work as a platform-admin password.
 
         The rejection may happen at either the schema layer (422 if the PIN
@@ -333,9 +324,7 @@ class TestActivationFlow:
             assert approved.json()["state"] == "active"
 
             # Supervisor's /me should now report 'active'.
-            me = api_client.get(
-                "/api/me", headers={"Authorization": f"Bearer {sup_token}"}
-            )
+            me = api_client.get("/api/me", headers={"Authorization": f"Bearer {sup_token}"})
             assert me.status_code == 200
             assert me.json()["tenant_state"] == "active"
         finally:
@@ -368,9 +357,7 @@ class TestActivationFlow:
 class TestStateMachineGuards:
     """The transition rules must reject illegal moves."""
 
-    def test_cannot_skip_pending_activation(
-        self, api_client, platform_client, session_factory
-    ):
+    def test_cannot_skip_pending_activation(self, api_client, platform_client, session_factory):
         """sandbox → active directly must be rejected."""
         password = "skip-test-pw-01"
         facility_code = f"skip-{secrets.token_hex(4)}"

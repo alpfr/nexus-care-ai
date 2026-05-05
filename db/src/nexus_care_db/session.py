@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 def make_engine(database_url: str, *, echo: bool = False) -> Engine:
     """Create a SQLAlchemy engine. `database_url` is a Postgres DSN, e.g.
 
-        postgresql+psycopg://user:pass@host:5433/nexus_care
+    postgresql+psycopg://user:pass@host:5433/nexus_care
     """
     return create_engine(
         database_url,
@@ -48,7 +48,7 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 @contextmanager
-def session_scope(factory: sessionmaker[Session]) -> Generator[Session, None, None]:
+def session_scope(factory: sessionmaker[Session]) -> Generator[Session]:
     """Provide a transactional scope around a series of operations.
 
     Used in scripts and tests. FastAPI handlers use the FastAPI dep system

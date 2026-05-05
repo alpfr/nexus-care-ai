@@ -13,12 +13,10 @@ import os
 import secrets
 import sys
 
-from sqlalchemy import select
-
 from nexus_care_auth import hash_pin
 from nexus_care_db import Tenant, User
 from nexus_care_db.session import make_engine, make_session_factory, session_scope
-
+from sqlalchemy import select
 
 SANDBOX_FACILITY_CODE = "demo-sandbox"
 SANDBOX_FACILITY_NAME = "Demo Sandbox Facility"
@@ -65,9 +63,7 @@ def main() -> int:
 
         # --- Supervisor user ---
         existing_supervisor = session.execute(
-            select(User).where(
-                User.tenant_id == tenant.id, User.full_name == SUPERVISOR_NAME
-            )
+            select(User).where(User.tenant_id == tenant.id, User.full_name == SUPERVISOR_NAME)
         ).scalar_one_or_none()
 
         if existing_supervisor is None:

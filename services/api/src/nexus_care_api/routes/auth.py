@@ -21,12 +21,9 @@ account. Distinguishing these would leak user-enumeration info to attackers.
 from __future__ import annotations
 
 import datetime as dt
+from contextlib import suppress
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from nexus_care_auth import (
     PINMismatch,
     hash_pin,
@@ -35,10 +32,12 @@ from nexus_care_auth import (
     verify_pin,
 )
 from nexus_care_db import Tenant, User
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from nexus_care_api.deps import AuthenticatedUser, get_db, require_user
 from nexus_care_api.settings import Settings, get_settings
-
 
 router = APIRouter(tags=["auth"])
 
@@ -80,7 +79,7 @@ GENERIC_LOGIN_FAIL = HTTPException(
 @router.post("/login", response_model=LoginResponse)
 def login(
     payload: LoginRequest,
-    request: Request,  # noqa: ARG001 — held for future rate-limiting hook
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> LoginResponse:
@@ -94,16 +93,16 @@ def login(
         # Always perform at least one Argon2 verify on a dummy hash so failure
         # timing doesn't reveal whether the facility code exists. The dummy
         # hash is a known-bad reference; verify_pin will raise PINMismatch.
-        try:
+        with suppress(PINMismatch):
             verify_pin("000000", _DUMMY_HASH)
-        except PINMismatch:
-            pass
         raise GENERIC_LOGIN_FAIL
 
     # 2. Find candidate active users in this tenant.
-    candidates = db.execute(
-        select(User).where(User.tenant_id == tenant.id, User.is_active.is_(True))
-    ).scalars().all()
+    candidates = (
+        db.execute(select(User).where(User.tenant_id == tenant.id, User.is_active.is_(True)))
+        .scalars()
+        .all()
+    )
 
     matched_user: User | None = None
     now = dt.datetime.now(dt.UTC)
@@ -126,10 +125,8 @@ def login(
 
     if matched_user is None:
         # Same dummy verify as above to even out timing.
-        try:
+        with suppress(PINMismatch):
             verify_pin("000000", _DUMMY_HASH)
-        except PINMismatch:
-            pass
         # Increment failed_login_count for any candidate that exists with
         # this facility — but we can't tell *which* PIN they tried, so we
         # don't penalize specific accounts here. Lockout is enforced when

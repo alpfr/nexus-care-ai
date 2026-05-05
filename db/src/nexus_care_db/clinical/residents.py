@@ -31,7 +31,6 @@ import datetime as dt
 from sqlalchemy import (
     CheckConstraint,
     Date,
-    DateTime,
     Index,
     Integer,
     String,
@@ -142,9 +141,7 @@ class Resident(Base, TimestampMixin):
 
     # ---- Emergency contact ----
     emergency_contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    emergency_contact_relationship: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
-    )
+    emergency_contact_relationship: Mapped[str | None] = mapped_column(String(64), nullable=True)
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # ---- Notes ----

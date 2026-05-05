@@ -14,11 +14,11 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 # Import the Base + all models so metadata is populated for autogenerate.
-from nexus_care_db import Base  # noqa: F401  (re-exports models)
+from nexus_care_db import Base
 from nexus_care_db.base import PLATFORM_SCHEMA, TENANT_DATA_SCHEMA
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 
@@ -45,9 +45,7 @@ TRACKED_SCHEMAS = {PLATFORM_SCHEMA, TENANT_DATA_SCHEMA}
 
 def include_object(obj, name, type_, reflected, compare_to):
     """Skip objects that aren't in the schemas we manage."""
-    if type_ == "table" and obj.schema not in TRACKED_SCHEMAS:
-        return False
-    return True
+    return not (type_ == "table" and obj.schema not in TRACKED_SCHEMAS)
 
 
 def run_migrations_offline() -> None:

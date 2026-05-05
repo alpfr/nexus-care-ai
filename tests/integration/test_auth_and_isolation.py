@@ -18,18 +18,14 @@ from __future__ import annotations
 
 import os
 import secrets
-from sqlalchemy import text
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
-
+from nexus_care_api.app import create_app
 from nexus_care_auth import hash_pin
 from nexus_care_db import AuditLog, Tenant, User
 from nexus_care_db.session import make_engine, make_session_factory, session_scope
-
-from nexus_care_api.app import create_app
-
+from sqlalchemy import select, text
 
 pytestmark = pytest.mark.integration
 
@@ -127,8 +123,10 @@ def two_tenants(session_factory):
             {"a": ids["code_a"], "b": ids["code_b"]},
         )
         session.execute(
-            text("DELETE FROM platform.users WHERE tenant_id IN "
-                 "(SELECT id FROM platform.tenants WHERE facility_code IN (:a, :b))"),
+            text(
+                "DELETE FROM platform.users WHERE tenant_id IN "
+                "(SELECT id FROM platform.tenants WHERE facility_code IN (:a, :b))"
+            ),
             {"a": ids["code_a"], "b": ids["code_b"]},
         )
     with session_scope(session_factory) as session:
@@ -220,33 +218,39 @@ class TestCrossTenantIsolation:
         """Insert an audit row for each tenant. Querying for tenant A must
         return only A's row, never B's."""
         with session_scope(session_factory) as session:
-            session.add_all([
-                AuditLog(
-                    tenant_id=two_tenants["tenant_a_id"],
-                    actor_user_id=two_tenants["user_a_id"],
-                    tenant_state="active",
-                    action="read",
-                    entity_type="resident",
-                    entity_id="ABC",
-                    outcome="success",
-                    summary="A read",
-                ),
-                AuditLog(
-                    tenant_id=two_tenants["tenant_b_id"],
-                    actor_user_id=two_tenants["user_b_id"],
-                    tenant_state="active",
-                    action="read",
-                    entity_type="resident",
-                    entity_id="XYZ",
-                    outcome="success",
-                    summary="B read",
-                ),
-            ])
+            session.add_all(
+                [
+                    AuditLog(
+                        tenant_id=two_tenants["tenant_a_id"],
+                        actor_user_id=two_tenants["user_a_id"],
+                        tenant_state="active",
+                        action="read",
+                        entity_type="resident",
+                        entity_id="ABC",
+                        outcome="success",
+                        summary="A read",
+                    ),
+                    AuditLog(
+                        tenant_id=two_tenants["tenant_b_id"],
+                        actor_user_id=two_tenants["user_b_id"],
+                        tenant_state="active",
+                        action="read",
+                        entity_type="resident",
+                        entity_id="XYZ",
+                        outcome="success",
+                        summary="B read",
+                    ),
+                ]
+            )
 
         with session_scope(session_factory) as session:
-            rows_a = session.execute(
-                select(AuditLog).where(AuditLog.tenant_id == two_tenants["tenant_a_id"])
-            ).scalars().all()
+            rows_a = (
+                session.execute(
+                    select(AuditLog).where(AuditLog.tenant_id == two_tenants["tenant_a_id"])
+                )
+                .scalars()
+                .all()
+            )
             assert all(r.tenant_id == two_tenants["tenant_a_id"] for r in rows_a)
             assert any(r.summary == "A read" for r in rows_a)
             assert not any(r.summary == "B read" for r in rows_a)

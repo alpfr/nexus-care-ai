@@ -15,8 +15,10 @@ in the services that import this package.
 from nexus_care_auth.password import (
     PasswordMismatch,
     hash_password,
-    needs_rehash as password_needs_rehash,
     verify_password,
+)
+from nexus_care_auth.password import (
+    needs_rehash as password_needs_rehash,
 )
 from nexus_care_auth.permissions import can
 from nexus_care_auth.pin import (

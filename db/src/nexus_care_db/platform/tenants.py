@@ -52,9 +52,7 @@ class Tenant(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    facility_code: Mapped[str] = mapped_column(
-        String(32), nullable=False, unique=True, index=True
-    )
+    facility_code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
     state: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -90,17 +88,13 @@ class Tenant(Base, TimestampMixin):
         ),
         nullable=True,
     )
-    activated_at: Mapped[dt.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    activated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # External references to BAA + identity verification. In tranche 4 these
     # are free-text — when we wire DocuSign/PandaDoc and Persona/Stripe Identity
     # in tranche 9, they hold the artifact IDs from those providers.
     baa_artifact_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    identity_verification_ref: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
+    identity_verification_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Why a tenant was suspended/terminated. Free-text for now; could become
     # an enum later.

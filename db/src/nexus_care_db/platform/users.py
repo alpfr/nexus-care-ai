@@ -73,17 +73,13 @@ class User(Base, TimestampMixin):
 
     role: Mapped[str] = mapped_column(String(32), nullable=False)
 
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("true")
-    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     # ---- Lockout (5 failed attempts = 15-minute lock) ----
     failed_login_count: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
-    locked_until: Mapped[dt.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    locked_until: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ---- Token revocation timestamp ----
     # Tokens with iat <= this value are rejected. Bump this column to invalidate

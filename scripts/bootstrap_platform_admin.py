@@ -18,11 +18,10 @@ import os
 import secrets
 import sys
 
-from sqlalchemy import select
-
 from nexus_care_auth import hash_password
 from nexus_care_db import PlatformAdmin
 from nexus_care_db.session import make_engine, make_session_factory, session_scope
+from sqlalchemy import select
 
 
 def main() -> int:
@@ -85,7 +84,7 @@ def main() -> int:
     print(" curl example:")
     print("   curl -X POST http://localhost:18002/api/platform/admin/login \\")
     print("     -H 'Content-Type: application/json' \\")
-    print(f"     -d '{{\"email\":\"{email}\",\"password\":\"{password}\"}}'")
+    print(f'     -d \'{{"email":"{email}","password":"{password}"}}\'')
     print("=" * 60)
     return 0
 

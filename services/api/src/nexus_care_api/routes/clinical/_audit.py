@@ -15,10 +15,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from nexus_care_db import AuditLog
 from nexus_care_tenancy import current_tenant
+from sqlalchemy.orm import Session
 
 
 def record_audit(

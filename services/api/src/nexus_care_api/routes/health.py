@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from nexus_care_api.deps import get_db
 
-
 router = APIRouter(tags=["health"])
 
 
